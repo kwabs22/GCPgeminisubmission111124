@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SustainableCare Dashboard (Local Demo)</title>
+    <!-- Include Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .button-container {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .chart-container {
+            width: 100%;
+            margin-bottom: 30px;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        .hidden {
+            display: none;
+        }
+        /* Styles for analysis results */
+        #analysis-results {
+            margin-top: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        #analysis-results h2 {
+            margin-bottom: 10px;
+        }
+        #analysis-output {
+            font-size: 16px;
+            color: #333;
+        }
+        /* Styles for passcode section - Removed */
+        /* Styles for passcode section have been removed as per requirements */
+    </style>
+</head>
+<body>
+
+    <h1>SustainableCare Dashboard (Local Demo)</h1>
+
+    <div class="button-container">
+        <button onclick="loadData()">Load Data</button>
+        <button onclick="plotEnergyByDepartment()">Plot Energy by Department</button>
+        <button onclick="plotEnergyOverTimeICU()">Plot Energy Over Time (ICU)</button>
+        <button onclick="showAnomalies()">Show Anomalies</button>
+        <!-- Removed Analyze Charts Button -->
+        <!-- Added Copy Sensor Data Button -->
+        <button onclick="copySensorData()">Copy Sensor Data as JSON</button>
+        <!-- Placeholder for Future Link -->
+        <button onclick="window.location.href='YOUR_LINK_HERE'">Your Link Here</button>
+    </div>
+
+    <!-- Main Data Table -->
+    <h2>Sensor Data</h2>
+    <table id="data-table">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Department</th>
+                <th>Energy (kWh)</th>
+                <th>Temperature (°C)</th>
+                <th>Humidity (%)</th>
+                <th>Occupancy</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Data will be populated here -->
+        </tbody>
+    </table>
+
+    <!-- Anomalies Table -->
+    <h2>Anomalies</h2>
+    <table id="anomaly-table">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Sensor ID</th>
+                <th>Energy (kWh)</th>
+                <th>Anomaly</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Anomalies will be populated here -->
+        </tbody>
+    </table>
+
+    <!-- Charts -->
+    <div class="chart-container">
+        <canvas id="energyByDeptChart"></canvas>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="energyOverTimeICUChart"></canvas>
+    </div>
+
+    <!-- Analysis Results - Removed -->
+    <!-- Removed analysis results section as API integration is no longer needed -->
+
+    <script>
+        // Function to generate mock data
+        function generateMockData(hours = 24) {
+            const departments = ['ICU', 'Radiology', 'ER', 'Admin'];
+            const sensorData = [];
+            const now = new Date();
+
+            for (let i = 0; i < hours; i++) {
+                const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
+                for (let j = 1; j <= 10; j++) { // 10 sensors
+                    const energy_kwh = getRandomFloat(50, 500);
+                    sensorData.push({
+                        timestamp: formatDate(timestamp),
+                        sensor_id: `sensor_${j.toString().padStart(3, '0')}`,
+                        department: departments[Math.floor(Math.random() * departments.length)],
+                        energy_kwh: parseFloat(energy_kwh.toFixed(2)),
+                        temperature_c: parseFloat(getRandomFloat(18, 30).toFixed(2)),
+                        humidity: Math.floor(getRandomFloat(30, 70)),
+                        occupancy: Math.floor(getRandomInt(0, 20)),
+                        anomaly: energy_kwh > 450 ? 'Anomaly' : 'Normal'
+                    });
+                }
+            }
+
+            return sensorData;
+        }
+
+        // Helper functions
+        function getRandomFloat(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}`;
+        }
+
+        // Global variables
+        let mockData = [];
+        let energyByDeptChart = null;
+        let energyOverTimeICUChart = null;
+
+        // Function to load data into the table
+        function loadData() {
+            mockData = generateMockData();
+            const tableBody = document.querySelector('#data-table tbody');
+            tableBody.innerHTML = ''; // Clear existing data
+
+            mockData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.timestamp}</td>
+                    <td>${row.department}</td>
+                    <td>${row.energy_kwh}</td>
+                    <td>${row.temperature_c}</td>
+                    <td>${row.humidity}</td>
+                    <td>${row.occupancy}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // Function to plot energy by department
+        function plotEnergyByDepartment() {
+            if (mockData.length === 0) {
+                alert("Please load data first.");
+                return;
+            }
+
+            // Group data by department and sum energy
+            const departmentEnergy = {};
+            mockData.forEach(row => {
+                if (departmentEnergy[row.department]) {
+                    departmentEnergy[row.department] += row.energy_kwh;
+                } else {
+                    departmentEnergy[row.department] = row.energy_kwh;
+                }
+            });
+
+            const departments = Object.keys(departmentEnergy);
+            const energies = Object.values(departmentEnergy).map(e => e.toFixed(2));
+
+            // Destroy existing chart if any
+            if (energyByDeptChart) {
+                energyByDeptChart.destroy();
+            }
+
+            const ctx = document.getElementById('energyByDeptChart').getContext('2d');
+            energyByDeptChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: departments,
+                    datasets: [{
+                        label: 'Total Energy Consumption (kWh)',
+                        data: energies,
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Total Energy Consumption by Department'
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Function to plot energy over time for ICU
+        function plotEnergyOverTimeICU() {
+            if (mockData.length === 0) {
+                alert("Please load data first.");
+                return;
+            }
+
+            // Filter ICU data and sort by timestamp
+            const icuData = mockData.filter(row => row.department === 'ICU')
+                                     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+            const timestamps = icuData.map(row => row.timestamp);
+            const energies = icuData.map(row => row.energy_kwh);
+
+            // Destroy existing chart if any
+            if (energyOverTimeICUChart) {
+                energyOverTimeICUChart.destroy();
+            }
+
+            const ctx = document.getElementById('energyOverTimeICUChart').getContext('2d');
+            energyOverTimeICUChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timestamps,
+                    datasets: [{
+                        label: 'ICU Energy Consumption (kWh)',
+                        data: energies,
+                        fill: false,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Energy Consumption Over Time for ICU'
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                maxTicksLimit: 10,
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Function to show anomalies
+        function showAnomalies() {
+            if (mockData.length === 0) {
+                alert("Please load data first.");
+                return;
+            }
+
+            const anomalies = mockData.filter(row => row.anomaly === 'Anomaly');
+            const tableBody = document.querySelector('#anomaly-table tbody');
+            tableBody.innerHTML = ''; // Clear existing data
+
+            anomalies.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.timestamp}</td>
+                    <td>${row.sensor_id}</td>
+                    <td>${row.energy_kwh}</td>
+                    <td>${row.anomaly}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+
+            if (anomalies.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td colspan="4">No anomalies found.</td>`;
+                tableBody.appendChild(tr);
+            }
+        }
+
+        // Function to copy sensor data as JSON to clipboard
+        function copySensorData() {
+            if (mockData.length === 0) {
+                alert("Please load data first.");
+                return;
+            }
+
+            // Prepare the data
+            const dataToCopy = JSON.stringify(mockData, null, 2); // Pretty-print with 2 spaces
+
+            // Use the Clipboard API
+            navigator.clipboard.writeText(dataToCopy).then(() => {
+                alert("Sensor data copied to clipboard!");
+            }).catch(err => {
+                console.error('Could not copy text: ', err);
+                alert("Failed to copy sensor data.");
+            });
+        }
+
+        // Removed analyzeCharts and passcode-related functions as per requirements
+
+        // Initialize the dashboard by loading data automatically (optional)
+        // Uncomment the following line if you want to load data on page load
+        // window.onload = loadData;
+    </script>
+</body>
+</html>
